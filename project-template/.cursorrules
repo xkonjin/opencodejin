@@ -1,0 +1,15 @@
+# Project Cursor Rules
+# Add project-specific rules here
+
+## Code Style
+- Use type hints for all function parameters and return values
+- Follow existing patterns in the codebase
+- Add comments for complex logic only
+
+## Important Paths
+# Add your project's key paths here
+# - Config: `src/config.py`
+# - Main entry: `src/main.py`
+
+## Environment Variables
+# Document required env vars here

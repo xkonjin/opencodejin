@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
+  "google_auth": false,
+  "ralph_loop": {
+    "enabled": true,
+    "default_max_iterations": 100
+  },
+  "agents": {
+    "librarian": { "model": "opencode/glm-4.7-free" },
+    "explore": { "model": "google/antigravity-gemini-3-flash" },
+    "frontend-ui-ux-engineer": { "model": "google/antigravity-gemini-3-pro-high" },
+    "document-writer": { "model": "google/antigravity-gemini-3-flash" },
+    "multimodal-looker": { "model": "google/antigravity-gemini-3-flash" }
+  },
+  "skills": {
+    "claude": {
+      "enabled": true,
+      "path": "~/.config/opencode/plugins",
+      "skills": [
+        "ai-creative-strategist",
+        "ai-image-generation",
+        "ai-product-photo",
+        "ai-product-video",
+        "ai-social-graphics",
+        "ai-talking-head",
+        "brand-voice",
+        "content-atomizer",
+        "direct-response-copy",
+        "email-sequences",
+        "keyword-research",
+        "lead-magnet",
+        "newsletter",
+        "orchestrator",
+        "positioning-angles",
+        "seo-content",
+        "systematic-debugging",
+        "test-driven-development",
+        "writing-plans"
+      ]
+    }
+  }
+}

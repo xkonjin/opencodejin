@@ -1,0 +1,43 @@
+# Railway CLI Command Guidelines
+
+## Commands That Timeout (AVOID)
+
+These commands often hang or timeout in Cursor terminals:
+
+```bash
+railway logs --service <name>
+railway logs --service <name> | tail -50
+railway logs --service <name> 2>&1 | head -30
+```
+
+## Safe Alternatives
+
+### Check Deployment Status (Fast)
+```bash
+railway service status --service <service-name> 2>&1
+```
+
+### Check Environment Variables
+```bash
+railway variables --service <service-name> --kv 2>&1 | grep <VAR_NAME>
+```
+
+### Set Environment Variables (triggers redeploy)
+```bash
+railway variables --service <service-name> --set "VAR_NAME=value" 2>&1
+```
+
+### Check Health via HTTP (with timeout)
+```bash
+curl -s --max-time 5 https://<domain>/health 2>&1
+```
+
+### View Recent Logs via Railway Dashboard
+Instead of CLI logs, direct user to: https://railway.app/project/<project-id>
+
+## Deployment Wait Pattern
+
+Don't use `sleep` loops. Instead:
+1. Trigger deployment (e.g., set a variable)
+2. Check status once immediately
+3. Tell user to check Railway dashboard or run status command manually in ~2 minutes

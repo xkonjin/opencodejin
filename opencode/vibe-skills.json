@@ -1,0 +1,36 @@
+{
+  "vibe_skills": {
+    "enabled": true,
+    "auto_activate": true,
+    "skills_path": "/Users/YOUR_USERNAME/.claude/skills",
+    "hooks_path": "/Users/YOUR_USERNAME/.claude/hooks",
+    "skills": {
+      "content_marketing": [
+        "brand-voice", "content-atomizer", "direct-response-copy",
+        "email-sequences", "keyword-research", "lead-magnet",
+        "newsletter", "orchestrator", "positioning-angles", "seo-content"
+      ],
+      "ai_creative": [
+        "ai-creative-strategist", "ai-image-generation", "ai-product-photo",
+        "ai-product-video", "ai-social-graphics", "ai-talking-head"
+      ]
+    },
+    "triggers": {
+      "brand-voice": ["brand voice", "writing style", "tone", "brand personality"],
+      "content-atomizer": ["repurpose", "multiple platforms", "adapt content"],
+      "direct-response-copy": ["sales copy", "conversion", "landing page"],
+      "email-sequences": ["email campaign", "drip", "welcome series"],
+      "keyword-research": ["SEO keywords", "search terms", "keyword"],
+      "lead-magnet": ["lead magnet", "opt-in", "free guide"],
+      "newsletter": ["newsletter", "weekly email", "subscribers"],
+      "positioning-angles": ["positioning", "differentiation", "competitive"],
+      "seo-content": ["SEO content", "SEO article", "optimize for search"],
+      "ai-creative-strategist": ["creative strategy", "visual strategy"],
+      "ai-image-generation": ["AI image", "image prompt", "Midjourney", "DALL-E"],
+      "ai-product-photo": ["product photo", "product photography"],
+      "ai-product-video": ["product video", "demo video"],
+      "ai-social-graphics": ["social media graphics", "Instagram", "Facebook"],
+      "ai-talking-head": ["talking head", "AI avatar", "virtual presenter"]
+    }
+  }
+}
