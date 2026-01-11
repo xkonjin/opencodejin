@@ -1,531 +1,399 @@
-## Executive Summary
+# Factory Droid CLI + CLIProxyAPI Setup Guide
 
-This guide documents how to use Factory's Droid CLI with your Claude Code Max subscription (OAuth authentication) instead of pay-per-token API keys. The solution leverages CLIProxyAPI as a transparent authentication proxy that converts API key requests from Factory CLI into OAuth-authenticated requests for Anthropic's API.
+Use Factory's Droid CLI with your Claude Code Max subscription and/or OpenAI Codex subscription via OAuth - no API keys needed.
 
-## Architecture Overview
-
-```
-Factory CLI → [Anthropic Format + API Key] → CLIProxyAPI → [Anthropic Format + OAuth] → Anthropic API
-                                                  ↓
-                                          (Auth Header Swap)
-```
-
-### Key Components
-
-1. **Factory Droid CLI**: AI-powered development assistant with BYOK (Bring Your Own Key) support
-2. **CLIProxyAPI**: Open-source proxy server that handles OAuth authentication for CLI models
-3. **Claude Code Max Subscription**: Consumer subscription using OAuth tokens instead of API keys
-4. **Anthropic Messages API**: Native API endpoint for Claude models
-
-## Why This Solution?
-
-### The Problem
-- Factory CLI expects API keys (`x-api-key` header) for Anthropic integration
-- Claude Code Max subscriptions use OAuth tokens (`Authorization: Bearer`)
-- Anthropic's public API doesn't accept OAuth tokens directly
-- No need for expensive pay-per-token API access when you have a Max subscription
-
-### The Solution
-CLIProxyAPI acts as a transparent proxy that:
-- Accepts native Anthropic format requests from Factory CLI
-- Replaces dummy API keys with valid OAuth tokens
-- Handles OAuth token refresh automatically
-- Preserves request/response format (no translation needed)
-
-## Prerequisites
-
-### System Requirements
-- Linux, macOS, or WSL2 on Windows
-- Go 1.24 or higher (for building from source)
-- Git for cloning the repository
-- Active Claude Code Max subscription
-- Factory CLI installed and configured
-
-### Network Requirements
-- Port 8317 (default) or any available port for the proxy
-- Port 54545 for OAuth callback during initial setup
-- Internet access to Anthropic's API endpoints
-
-## Installation Guide
-
-### Step 0: Install Factory Droid
-- Sign up at https://factory.ai/ and install the bridge
-- Install the Droid CLI. 
-```
-curl -fsSL https://app.factory.ai/cli | sh
-```
-
-### Step 1: Install Go (if not already installed)
+## Quick Start
 
 ```bash
-# Download and install Go
+# 1. Install Go
 brew install go
 
-# Add to PATH (add to ~/.bashrc or ~/.zshrc for persistence)
-export PATH=$PATH:/usr/local/go/bin
-export GOPATH=$HOME/go
-export PATH=$PATH:$GOPATH/bin
-
-# Verify installation
-go version
-```
-
-### Step 2: Clone and Build CLIProxyAPI
-
-```bash
-# Clone the repository
+# 2. Clone and build CLIProxyAPI
 git clone https://github.com/luispater/CLIProxyAPI.git
 cd CLIProxyAPI
-
-# Build the binary
 go build -o cli-proxy-api ./cmd/server
 
-# Verify the binary was created
-ls -la cli-proxy-api
+# 3. Login to your accounts
+./cli-proxy-api --claude-login    # For Claude
+./cli-proxy-api --codex-login     # For OpenAI Codex
+
+# 4. Start the proxy
+./cli-proxy-api --config config.yaml
+
+# 5. Copy the Factory config below to ~/.factory/config.json
+
+# 6. Run droid and use /model to select your custom model
+droid
 ```
 
-### Step 3: Configure the Proxy
+## Architecture
 
-Create a `config.yaml` file in the CLIProxyAPI directory:
-
-```yaml
-# Server port (use any available port)
-port: 8317
-
-# Management API settings
-remote-management:
-  allow-remote: false
-  secret-key: ""  # Leave empty to disable management API
-
-# Authentication directory (stores OAuth tokens)
-auth-dir: "~/.cli-proxy-api"
-
-# Logging configuration
-debug: false
-logging-to-file: false
-
-# Usage statistics
-usage-statistics-enabled: true
-
-# Network proxy (if needed for corporate networks)
-proxy-url: ""
-
-# Retry configuration
-request-retry: 3
-
-# Quota management
-quota-exceeded:
-  switch-project: true
-  switch-preview-model: true
-
-# Disable request authentication (Factory handles its own)
-auth:
-  providers: []
-
-# No API keys needed for Claude OAuth
-generative-language-api-key: []
+```
+Factory CLI → CLIProxyAPI (localhost:8317) → Claude/OpenAI APIs
+                    ↓
+            OAuth Token Injection
 ```
 
-### Step 4: OAuth Authentication Setup
+## Working Configuration (Tested January 2026)
 
-Run the OAuth login flow to authenticate with your Claude Code account:
+### ~/.factory/config.json
 
-```bash
-./cli-proxy-api --claude-login
-```
-
-For getting OpenAI Codex working with this: 
-```bash
-./cli-proxy-api --codex-login
-```
-
-This will:
-1. Start a local OAuth callback server on port 54545
-2. Provide an authentication URL (open in browser if not automatic)
-3. Complete the OAuth flow with Anthropic / OpenAI
-4. Save tokens to `~/.cli-proxy-api/claude-{email}.json`
-
-**For Remote Servers**: If running on a remote server, you'll need an SSH tunnel:
-```bash
-# On your local machine (not the server):
-ssh -L 54545:127.0.0.1:54545 user@your-server-ip
-```
-
-### Step 5: Configure Factory CLI
-
-Create or modify `~/.factory/config.json`:
+**IMPORTANT**: The URL format differs between providers:
+- **Anthropic (Claude)**: Use `http://127.0.0.1:8317` (NO `/v1` suffix)
+- **OpenAI (Codex)**: Use `http://127.0.0.1:8317/v1` (WITH `/v1` suffix)
 
 ```json
 {
   "custom_models": [
     {
-      "model": "claude-opus-4-1-20250805",
-      "base_url": "http://localhost:8317",
-      "api_key": "dummy-not-used",
+      "model": "claude-opus-4-5-20251101",
+      "base_url": "http://127.0.0.1:8317",
+      "api_key": "sk-dummy",
       "provider": "anthropic"
     },
     {
-      "model": "claude-sonnet-4-20250514",
-      "base_url": "http://localhost:8317",
-      "api_key": "dummy-not-used",
+      "model": "claude-sonnet-4-5-20250929",
+      "base_url": "http://127.0.0.1:8317",
+      "api_key": "sk-dummy",
+      "provider": "anthropic"
+    },
+    {
+      "model": "claude-haiku-4-5-20251001",
+      "base_url": "http://127.0.0.1:8317",
+      "api_key": "sk-dummy",
       "provider": "anthropic"
     },
     {
       "model": "gpt-5",
-      "base_url": "http://localhost:8317",
-      "api_key": "dummy-not-used",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
       "provider": "openai"
     },
     {
-      "model": "gpt-5-minimal",
-      "base_url": "http://localhost:8317",
-      "api_key": "dummy-not-used",
+      "model": "gpt-5(medium)",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
       "provider": "openai"
     },
     {
-      "model": "gpt-5-medium",
-      "base_url": "http://localhost:8317",
-      "api_key": "dummy-not-used",
-      "provider": "openai"
-    },
-    {
-      "model": "gpt-5-high",
-      "base_url": "http://localhost:8317",
-      "api_key": "dummy-not-used",
+      "model": "gpt-5(high)",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
       "provider": "openai"
     },
     {
       "model": "gpt-5-codex",
-      "base_url": "http://localhost:8317",
-      "api_key": "dummy-not-used",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
       "provider": "openai"
     },
     {
-      "model": "gpt-5-codex-high",
-      "base_url": "http://localhost:8317",
-      "api_key": "dummy-not-used",
+      "model": "gpt-5-codex(medium)",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
+      "provider": "openai"
+    },
+    {
+      "model": "gpt-5-codex(high)",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
       "provider": "openai"
     }
   ]
 }
 ```
 
+### CLIProxyAPI config.yaml
 
-**Note**: The `api_key` field is required by Factory but ignored by the proxy (OAuth is used instead).
+```yaml
+port: 8317
 
-## Running the System
+remote-management:
+  allow-remote: false
+  secret-key: ""
 
-### Start the Proxy Server
+auth-dir: "~/.cli-proxy-api"
+
+debug: false
+logging-to-file: false
+
+usage-statistics-enabled: true
+proxy-url: ""
+request-retry: 3
+
+quota-exceeded:
+  switch-project: true
+  switch-preview-model: true
+
+auth:
+  providers: []
+
+generative-language-api-key: []
+```
+
+## Latest Claude Model IDs (January 2026)
+
+From [Anthropic's official docs](https://platform.claude.com/docs/en/about-claude/models/overview):
+
+| Model | API ID | Description |
+|-------|--------|-------------|
+| Claude Opus 4.5 | `claude-opus-4-5-20251101` | Premium model, maximum intelligence |
+| Claude Sonnet 4.5 | `claude-sonnet-4-5-20250929` | Best for complex agents and coding |
+| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | Fastest model |
+
+## OpenAI Codex Model IDs
+
+| Model | Description |
+|-------|-------------|
+| `gpt-5` | Base GPT-5 model |
+| `gpt-5(minimal)` | Minimal reasoning |
+| `gpt-5(low)` | Low reasoning |
+| `gpt-5(medium)` | Medium reasoning |
+| `gpt-5(high)` | High reasoning |
+| `gpt-5-codex` | Codex optimized |
+| `gpt-5-codex(low)` | Codex with low reasoning |
+| `gpt-5-codex(medium)` | Codex with medium reasoning |
+| `gpt-5-codex(high)` | Codex with high reasoning |
+
+## Installation Steps
+
+### 1. Install Prerequisites
 
 ```bash
-# Start in foreground (for testing)
+# macOS
+brew install go git
+
+# Verify
+go version  # Should be 1.24+
+```
+
+### 2. Build CLIProxyAPI
+
+```bash
+git clone https://github.com/luispater/CLIProxyAPI.git
+cd CLIProxyAPI
+go build -o cli-proxy-api ./cmd/server
+```
+
+### 3. Create config.yaml
+
+```bash
+cat > config.yaml << 'EOF'
+port: 8317
+remote-management:
+  allow-remote: false
+  secret-key: ""
+auth-dir: "~/.cli-proxy-api"
+debug: false
+logging-to-file: false
+usage-statistics-enabled: true
+proxy-url: ""
+request-retry: 3
+quota-exceeded:
+  switch-project: true
+  switch-preview-model: true
+auth:
+  providers: []
+generative-language-api-key: []
+EOF
+```
+
+### 4. OAuth Login
+
+```bash
+# For Claude (requires Claude Max subscription)
+./cli-proxy-api --claude-login
+
+# For OpenAI Codex (requires ChatGPT Plus/Team)
+./cli-proxy-api --codex-login
+```
+
+This opens a browser for OAuth. Tokens are saved to `~/.cli-proxy-api/`.
+
+### 5. Start the Proxy
+
+```bash
+# Foreground (for testing)
 ./cli-proxy-api --config config.yaml
 
-# Or start in background
-nohup ./cli-proxy-api --config config.yaml > proxy.log 2>&1 &
-
-# Or use systemd service (see below)
+# Background
+nohup ./cli-proxy-api --config config.yaml > ~/.cli-proxy-api/proxy.log 2>&1 &
 ```
 
-Expected output:
-```
-CLIProxyAPI Version: dev, Commit: none, BuiltAt: unknown
-API server started successfully
-server clients and configuration updated: 1 clients (1 auth files)
-```
+### 6. Configure Factory CLI
 
-### Using Factory CLI
-
-1. Start Factory Droid:
-   ```bash
-   droid
-   ```
-
-2. Select your custom model:
-   ```
-   /model
-   ```
-   Choose either:
-   - `claude-opus-4-1-20250805` (Claude Opus 4.1)
-   - `claude-sonnet-4-20250514` (Claude Sonnet 4)
-   - or other openAI models. 
-
-3. Use as normal - Factory will now use your Claude Code subscription!
-
-## Production Setup
-
-### Systemd Service (Linux)
-
-Create `/etc/systemd/system/cli-proxy-api.service`:
-
-```ini
-[Unit]
-Description=CLI Proxy API for Factory Claude Integration
-After=network.target
-
-[Service]
-Type=simple
-User=your-username
-WorkingDirectory=/path/to/CLIProxyAPI
-ExecStart=/path/to/CLIProxyAPI/cli-proxy-api --config config.yaml
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable cli-proxy-api
-sudo systemctl start cli-proxy-api
-sudo systemctl status cli-proxy-api
+mkdir -p ~/.factory
+cat > ~/.factory/config.json << 'EOF'
+{
+  "custom_models": [
+    {
+      "model": "claude-opus-4-5-20251101",
+      "base_url": "http://127.0.0.1:8317",
+      "api_key": "sk-dummy",
+      "provider": "anthropic"
+    },
+    {
+      "model": "claude-sonnet-4-5-20250929",
+      "base_url": "http://127.0.0.1:8317",
+      "api_key": "sk-dummy",
+      "provider": "anthropic"
+    },
+    {
+      "model": "claude-haiku-4-5-20251001",
+      "base_url": "http://127.0.0.1:8317",
+      "api_key": "sk-dummy",
+      "provider": "anthropic"
+    },
+    {
+      "model": "gpt-5",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
+      "provider": "openai"
+    },
+    {
+      "model": "gpt-5(medium)",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
+      "provider": "openai"
+    },
+    {
+      "model": "gpt-5(high)",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
+      "provider": "openai"
+    },
+    {
+      "model": "gpt-5-codex",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
+      "provider": "openai"
+    },
+    {
+      "model": "gpt-5-codex(medium)",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
+      "provider": "openai"
+    },
+    {
+      "model": "gpt-5-codex(high)",
+      "base_url": "http://127.0.0.1:8317/v1",
+      "api_key": "sk-dummy",
+      "provider": "openai"
+    }
+  ]
+}
+EOF
 ```
 
-### Docker Deployment
+### 7. Test
 
-Create a `Dockerfile`:
-
-```dockerfile
-FROM golang:1.25-alpine AS builder
-WORKDIR /app
-COPY . .
-RUN go build -o cli-proxy-api ./cmd/server
-
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
-COPY --from=builder /app/cli-proxy-api .
-COPY config.yaml .
-CMD ["./cli-proxy-api", "--config", "config.yaml"]
-```
-
-Build and run:
 ```bash
-docker build -t cli-proxy-api .
-docker run -d -p 8317:8317 -v ~/.cli-proxy-api:/root/.cli-proxy-api cli-proxy-api
+# Test Claude
+curl -s -X POST http://127.0.0.1:8317/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: sk-dummy" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{"model":"claude-sonnet-4-5-20250929","messages":[{"role":"user","content":"Say test"}],"max_tokens":20}'
+
+# Test Codex
+curl -s -X POST http://127.0.0.1:8317/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-dummy" \
+  -d '{"model":"gpt-5-codex","messages":[{"role":"user","content":"Say test"}],"max_tokens":20}'
+```
+
+## Running as a Service (macOS)
+
+Create `~/Library/LaunchAgents/com.cliproxyapi.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.cliproxyapi</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/CLIProxyAPI/cli-proxy-api</string>
+        <string>--config</string>
+        <string>/path/to/CLIProxyAPI/config.yaml</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/cliproxyapi.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/cliproxyapi.err</string>
+</dict>
+</plist>
+```
+
+Load it:
+```bash
+launchctl load ~/Library/LaunchAgents/com.cliproxyapi.plist
 ```
 
 ## Troubleshooting
 
-### Common Issues and Solutions
+### "400 Bad Request" errors
 
-#### Port Already in Use
-```
-Error: listen tcp :8317: bind: address already in use
-```
-**Solution**: Change the port in both `config.yaml` and `~/.factory/config.json`.
+**Cause**: Wrong URL format for provider.
 
-#### OAuth Token Expired
-```
-Error: OAuth token unavailable or expired
-```
-**Solution**: Re-run `./cli-proxy-api --claude-login` to refresh authentication.
+**Fix**: 
+- Claude models: `http://127.0.0.1:8317` (no `/v1`)
+- OpenAI models: `http://127.0.0.1:8317/v1` (with `/v1`)
 
-#### Factory Can't Connect to Proxy
-```
-Error: Connection refused
-```
-**Solutions**:
-- Ensure proxy is running: `ps aux | grep cli-proxy-api`
-- Check correct port in Factory config matches proxy config
-- Verify firewall allows localhost connections
+### "unknown provider for model" error
 
-#### Model Not Found
-```
-Error: Model claude-xxx not found
-```
-**Solution**: Use exact model names from the supported list:
-- `claude-opus-4-1-20250805`
-- `claude-sonnet-4-20250514`
+**Cause**: Model name not recognized by proxy.
 
-### Debug Mode
+**Fix**: Use exact model names as listed above. For Codex reasoning levels, use parentheses: `gpt-5(high)`, not `gpt-5-high`.
 
-Enable debug logging for troubleshooting:
+### OAuth token expired
 
-```yaml
-# In config.yaml
-debug: true
-logging-to-file: true
-```
-
-Check logs in `logs/` directory relative to config file.
-
-## Security Considerations
-
-### OAuth Token Security
-- Tokens stored in `~/.cli-proxy-api/` with user-only permissions
-- Never commit token files to version control
-- Tokens auto-refresh before expiration
-- No tokens appear in logs (automatically redacted)
-
-### Network Security
-- Proxy binds to localhost only by default
-- No external access without explicit configuration
-- HTTPS used for all Anthropic API communication
-- Optional proxy authentication can be enabled
-
-### Best Practices
-1. Run proxy as non-root user
-2. Use systemd service with restart policies
-3. Monitor logs for authentication failures
-4. Rotate OAuth tokens periodically (re-login)
-5. Keep CLIProxyAPI updated for security patches
-
-## Supported Models
-
-### Currently Available
-- **Claude Opus 4.1** (`claude-opus-4-1-20250805`)
-  - Most capable model for complex reasoning
-  - Best for architecture, planning, deep analysis
-
-- **Claude Sonnet 4** (`claude-sonnet-4-20250514`)
-  - Balanced performance and speed
-  - Ideal for general development tasks
-
-### Adding New Models
-When Anthropic releases new models, update Factory config with the exact model ID:
-```json
-{
-  "model": "claude-{new-model-id}",
-  "base_url": "http://localhost:8317",
-  "api_key": "dummy-not-used",
-  "provider": "anthropic"
-}
-```
-
-## Technical Details
-
-### How the Proxy Works
-
-1. **Request Flow**:
-   - Factory sends Anthropic-format request with dummy API key
-   - Proxy receives request on `/v1/messages` endpoint
-   - Proxy strips `X-Api-Key` header
-   - Proxy adds `Authorization: Bearer {oauth_token}`
-   - Proxy adds required beta headers for OAuth
-   - Request forwarded to Anthropic unchanged
-
-2. **Response Flow**:
-   - Anthropic responds in native format
-   - Proxy streams response back to Factory
-   - No format translation needed
-
-3. **Token Management**:
-   - OAuth tokens cached until near expiration
-   - Automatic refresh using refresh token
-   - Multiple account support with round-robin
-
-### Key Files and Directories
-
-```
-~/
-├── .factory/
-│   └── config.json          # Factory CLI configuration
-├── .cli-proxy-api/
-│   └── claude-*.json        # OAuth tokens (auto-generated)
-└── projects/CLIProxyAPI/
-    ├── cli-proxy-api        # Compiled binary
-    ├── config.yaml          # Proxy configuration
-    └── logs/               # Log files (if enabled)
-```
-
-## Performance Optimization
-
-### Latency Reduction
-- No format translation overhead (native Anthropic format)
-- Direct pass-through of streaming responses
-- Connection pooling for API requests
-- Local caching of OAuth tokens
-
-### Resource Usage
-- Minimal CPU usage (< 1% idle, < 5% active)
-- Low memory footprint (< 50MB typical)
-- No disk I/O except for logs (if enabled)
-- Stateless operation (except OAuth tokens)
-
-## Monitoring and Maintenance
-
-### Health Checks
 ```bash
-# Check if proxy is running
-curl -s http://localhost:8317/health || echo "Proxy not responding"
-
-# View real-time logs
-tail -f logs/app.log  # If file logging enabled
-
-# Check OAuth token status
-ls -la ~/.cli-proxy-api/
-```
-
-### Regular Maintenance
-- **Weekly**: Check logs for errors
-- **Monthly**: Update CLIProxyAPI if new version available
-- **Quarterly**: Re-authenticate OAuth (preventive)
-- **As Needed**: Adjust port if conflicts arise
-
-## Conclusion
-
-This solution enables seamless integration between Factory's Droid CLI and Claude Code Max subscriptions, eliminating the need for pay-per-token API access. The CLIProxyAPI serves as a lightweight, transparent proxy that handles OAuth authentication while preserving the native Anthropic API format that Factory already supports.
-
-### Benefits Achieved
-- ✅ Use Claude Code Max subscription with Factory CLI
-- ✅ No API key costs
-- ✅ Automatic token refresh
-- ✅ Native Anthropic format (no translation overhead)
-- ✅ Simple one-time setup
-- ✅ Production-ready with systemd/Docker support
-
-### Next Steps
-1. Set up the proxy following this guide
-2. Test with a simple Factory CLI interaction
-3. Configure for production use if successful
-4. Share with team members who have Claude Code subscriptions
-
-## Support and Resources
-
-### CLIProxyAPI Resources
-- GitHub Repository: https://github.com/luispater/CLIProxyAPI
-- Issues/Support: https://github.com/luispater/CLIProxyAPI/issues
-- Documentation: See repository README.md
-
-### Factory CLI Resources
-- Documentation: https://docs.factory.ai/cli
-- BYOK Configuration: https://docs.factory.ai/cli/configuration/byok
-- Support: Contact Factory support team
-
-### Anthropic/Claude Resources
-- API Documentation: https://docs.anthropic.com
-- Model Information: https://docs.anthropic.com/en/docs/about-claude/models
-- Claude Code: https://claude.ai
-
-## Appendix: Quick Reference
-
-### Essential Commands
-```bash
-# Build proxy
-go build -o cli-proxy-api ./cmd/server
-
-# OAuth setup
+# Re-login
 ./cli-proxy-api --claude-login
-
-# Start proxy
-./cli-proxy-api --config config.yaml
-
-# Test with curl
-curl -X POST http://localhost:8317/v1/messages \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: dummy" \
-  -H "anthropic-version: 2023-06-01" \
-  -d '{"model":"claude-opus-4-1-20250805","messages":[{"role":"user","content":"Hello"}],"max_tokens":100}'
-
-# Use with Factory
-droid
-/model  # Select custom model
+./cli-proxy-api --codex-login
 ```
 
-### Configuration Templates
-All configuration templates are provided in the main guide above and can be copied directly.
+### Proxy not running
 
----
+```bash
+# Check if running
+ps aux | grep cli-proxy-api
+
+# Check logs
+cat ~/.cli-proxy-api/cli-proxy-api.log
+```
+
+### Connection refused
+
+```bash
+# Ensure proxy is running on correct port
+curl http://127.0.0.1:8317/v1/models
+```
+
+## Key Files
+
+```
+~/.factory/config.json           # Factory CLI custom models config
+~/.cli-proxy-api/
+├── claude-{email}.json          # Claude OAuth token
+├── codex-{email}.json           # Codex OAuth token
+└── cli-proxy-api.log            # Proxy logs
+~/path/to/CLIProxyAPI/
+├── cli-proxy-api                # Binary
+└── config.yaml                  # Proxy config
+```
+
+## Resources
+
+- [CLIProxyAPI GitHub](https://github.com/luispater/CLIProxyAPI)
+- [CLIProxyAPI Docs](https://help.router-for.me/)
+- [Factory Droid Docs](https://docs.factory.ai/)
+- [Anthropic Models](https://platform.claude.com/docs/en/about-claude/models/overview)
