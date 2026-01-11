@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shellcheck install script
+        run: |
+          sudo apt-get install -y shellcheck
+          shellcheck install.sh || true
+      - name: Validate JSON configs
+        run: |
+          for f in $(find . -name "*.json" -not -path "./node_modules/*"); do
+            python3 -c "import json; json.load(open('$f'))" && echo "$f is valid"
+          done
